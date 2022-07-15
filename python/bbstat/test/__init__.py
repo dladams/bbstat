@@ -1,0 +1,1 @@
+from bbstat import version
