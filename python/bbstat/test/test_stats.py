@@ -5,7 +5,7 @@ from bbstat import Reader
 import sys
 import pandas
 
-def main_test_stats(xcl=False):
+def main_test_stats(xarg=''):
   pandas.options.display.width = 0
   dir = '/Users/davidadams/sports/wildcats/wildcats2022'
   line = '----------------------------'
@@ -16,40 +16,75 @@ def main_test_stats(xcl=False):
       ng2 = int(sys.argv[2])
   else:
       ng2 = ng1
+  if len(sys.argv) > 3:
+      xarg = sys.argv[3]
+  xonly  = len(xarg) and xarg == 'only'
+  xcheck = len(xarg) and xarg == 'check'
   ros = Roster()
   ros.set_from_excel(dir + '/roster.xlsx')
   ros.display()
-  gstat_sum = GameStats(ros)
-  if xcl:
-    for sgam in 'tob01 tob02 tob03 tob04 tob05'.split():
-      gstats = GameStats(ros)
-      fin = f"{dir}/{sgam}.xlsx"
+  xstat_sum = GameStats(ros, fill=True)
+  gstat_sum = GameStats(ros, fill=True)
+  count = 0
+  if xonly:
+    gstats = GameStats(ros, fill=True)
+    for ig in range(ng1, ng2+1):
+      sgam = str(ig)
+      if len(sgam) < 2: sgam = '0' + sgam
+      sgam = 'tob' + sgam
+      fin = f"{dir}/gamesums/{sgam}.xlsx"
+      print(line, sgam)
       gstats.add_from_excel(fin)
+      print(line, 'xfile')
+      xstats = GameStats(ros, xfile=fin)
+      print(xstats.bat_stats())
+      print(line, 'sum after ', sgam)
+      gstats.add(xstats)
+      print(gstats.bat_stats())
+    print(line)
   else:
     dbg = 0
     for ig in range(ng1, ng2+1):
       sgam = str(ig)
       if len(sgam) < 2: sgam = '0' + sgam
       sgam = 'tob' + sgam
-      # xcl stats
-      gstats = GameStats(ros)
-      fin = f"{dir}/gamesums/{sgam}.xlsx"
-      gstats.add_from_excel(fin)
-      print(line, sgam)
-      xdf = gstats.bat_stats()
-      print(xdf)
       # Game stats
       gdir = '/Users/davidadams/sports/wildcats/wildcats2022/games'
       fnam = gdir + '/' + sgam + '.dat'
-      print(line, sgam)
+      print(line, 'Game', sgam)
       rdr = Reader(fnam, dbg)
       game = rdr.game()
       if game.error:
           return 1
-      gdf = game.teamstats().bat_stats().sort_index()
-      gdf.drop('name', axis=1, inplace=True)
+      gstat_sum.add(game.teamstats())
+      gdf  = game.teamstats().bat_stats()
+      gsdf = gstat_sum.bat_stats()
       print(gdf)
-      print(line, sgam)
-      print(xdf.compare(gdf))
-      #game.teamstats().display_bat_stats()
+      print(line, 'Game sum ', sgam)
+      print(gsdf)
+      if xcheck:
+        # xcl stats
+        print(line, 'Excel game stats:', sgam)
+        fin = f"{dir}/gamesums/{sgam}.xlsx"
+        xstats = GameStats(ros, fin)
+        xstats_sum.add(xstats)
+        print(xstats.bat_stats())
+        print(line, 'Excel sume stats:', sgam)
+        print(xstats_sum.bat_stats())
+        print(line, 'Last game comparison', sgam)
+        xdf = sstats.bat_stats()
+        print(xdf.compare(gdf))
+        print(line, 'Game sum comparison', sgam)
+        xsdf = gstat_sum.bat_stats()
+        print(xsdf.compare(gsdf))
       if ig == ng2: print(line)
+      count = count + 1
+  print(line)
+  gstat_sum.display_bat_stats()
+  print(line, 'Stat summary')
+  bstats = BatStats(gstat_sum, minpa=20)
+  print(line, 'Stat summary')
+  bstats.display()
+  print(f"  Batting stat summary for {count} games")
+  bstats.report()
+  print(line)

@@ -20,25 +20,90 @@ class GameStats:
               myname = 'GameStats.toint'
               print(f"{myname}: WARNING: Ignoring invalid input value:'{f}'")
               return 0
+
+  def name_match(nam1, nam2):
+    '''
+    Return if two names match.
+    True if all the sub-nmaes in the sharte ar include in the longer.
+    '''
+    snams1 = nam1.split()
+    snams2 = nam2.split()
+    if len(snams1) > len(snams2):
+      return name_match(nam2, nam1)
+    for snam in snams1:
+      if snam not in snams2: return False
+    return True
+      
   bat_index = 'num'
-  bat_names = 'num name pa k out sac sf fc e bb hbp b1 b2 b3 hr rbi run obo cs sb pbw'.split()
+  nam_names = ['name']
+  bat_names = 'pa k out sac sf fc e bb hbp b1 b2 b3 hr rbi run obo cs sb pbw'.split()
+  pit_names = 'bf ino b s bpo rpo k bb hpb hit run wp'.split()
+  all_bat_names = nam_names + bat_names
+  idx_bat_names = [bat_index] + all_bat_names
+  all_pit_names = nam_names + pit_names
+  idx_pit_names = [bat_index] + all_pit_names
   bat_dict = {}
   con_dict = {}
   typ_dict = {}
   bat_dict['name'] = ''
   con_dict['name'] = tostr
   typ_dict['name'] = str
-  for nam in bat_names[2:]:
+  for nam in bat_names:
       bat_dict[nam] = 0
       con_dict[nam] = toint
       typ_dict[nam] = int
 
-  def __init__(self, roster=None):
+  def __init__(self, roster=None, fill=True, xfile=''):
+    '''
+    Create tables of statistics.
+    If fill is true, it is created from the roste with all fields zeroed.
+    '''
     self.__roster = roster
-    self.__batstats = pandas.DataFrame(columns=GameStats.bat_names, dtype=int)
-    self.__batstats.astype(GameStats.typ_dict)
+    self.__batstats = pandas.DataFrame(columns=GameStats.idx_bat_names, dtype=int).astype(GameStats.typ_dict)
+    self.batstats_last = None
     self.__batstats.set_index(GameStats.bat_index, inplace=True)
     self.__fieldstats = None
+    if fill and self.roster() is not None:
+      if self.roster() is None:
+        print(f"{myname}: WARNING: Cannot fill without a roster.")
+      else:
+        rosdf = self.roster().get().copy()
+        rosdf['name'] = rosdf['first']+ ' ' + rosdf['last']
+        rosdf.drop(['first', 'last'], axis=1, inplace=True)
+        batdf = rosdf.copy()
+        for nam in GameStats.bat_names:
+            batdf[nam] = int(0)
+        self.__batstats = batdf
+    if len(xfile):
+      self.add_from_excel(xfile)
+
+  def add(self, rhs, dbg=0):
+    '''Add stats from another stats object.'''
+    myname = 'GameStats.add'
+    if dbg > 0: print(f"Adding stats from")
+    # Check names and find the number of the players to be updated.
+    rhsdf = rhs.bat_stats()
+    olddf = self.__batstats
+    nums = []
+    newdf = olddf
+    updcols = GameStats.bat_names
+    for num in olddf.index:
+      if num not in rhsdf.index: continue
+      oldnam = olddf.loc[num, 'name']
+      rhsnam = rhsdf.loc[num, 'name']
+      if not GameStats.name_match(rhsnam, oldnam):
+        print(f"{myname}: WARNING: Player {num} new name {rhsnam} differs from existing name {oldnam}")
+      if dbg > 1: print(f"{myname}: Updating bat stats for {num} {oldnam}.")
+      newdf.loc[num, updcols] = olddf.loc[num, updcols] + rhsdf.loc[num, updcols]
+    for num in rhsdf.index:
+      if num not in olddf.index:
+        print(f"{myname}: WARNING: Ignoring stats for new player {num} {rhsdf.loc[num,'name']}")
+    if dbg > 1:
+      print(f"{myname}: Old bat stats:\n{olddf}")
+      print(f"{myname}: Add bat stats:\n{rhsdf}")
+      print(f"{myname}: New bat stats:\n{newdf}")
+    self.__batsums = newdf
+    return 0
 
   def add_from_excel(self, fin, dbg=0):
     '''Add stats from an excel file'''
@@ -46,12 +111,13 @@ class GameStats:
     print(f"Adding stats from {fin}")
     shnam = 'batsum'
     inam = GameStats.bat_index
-    cols = [inam] + GameStats.bat_names
+    cols = GameStats._idx_bat_names
     try:
+      if dbg > 0: print(f"{myname}: Reading batstats from {fin}")
       bstats = pandas.read_excel(fin, sheet_name=shnam, header=0, index_col=inam,
                                  usecols=cols, converters=GameStats.con_dict).fillna(0)
                                  #usecols=cols, dtype=GameStats.typ_dict).fillna(0)
-      bstats.astype(GameStats.typ_dict)
+      if dbg > 2: print(bstats.info());
     except:
       traceback.print_exc()
       bstats = pandas.DataFrame()
@@ -62,6 +128,8 @@ class GameStats:
         rosnam = self.roster().first_name(num)
         if gamnam!= rosnam:
           print(f"{myname}: WARNING: Player {num} game name {gamnam} differs from roster name {rosnam}")
+        else:
+          if dbg > 1: print(f"{myname}: Player number {num} name {gamnam} is in roster.")
     else:
         print(f"{myname}: ERROR: Roster not found.")
     if len(bstats) == 0:
@@ -69,17 +137,22 @@ class GameStats:
     else:
       bstats.drop(columns='name', inplace=True)
       bstats = bstats.fillna(0).astype('int').sort_values(inam)
+      self.batstats_last = bstats
       if dbg > 1:
-        print(f"\n{myname}: start:")
+        print(f"\n{myname}: Starting:")
         print(self.__batstats)
-        print(f"{myname}: Read data for {len(bstats)} batters.")
+        print(f"\n{myname}: Adding ({len(bstats)} batters):")
         print(bstats)
       if len(self.__batstats) == 0:
+        print(f"\n{myname}: Creating bat stats.")
         self.__batstats = bstats
       else:
-        self.__batstats = self.__batstats.add(bstats, fill_value=0).astype('int')
+        print(f"\n{myname}: Updating bat stats.")
+        sumstats = self.__batstats.drop('name', axis=1).add(bstats, fill_value=0).astype('int')
+        sumstats.insert(0, 'name', self.__batstats['name'])
+        self.__batstats = sumstats
       if dbg > 1:
-        print(f"{myname}: result:")
+        print(f"{myname}: Summed batting stats:")
         print(self.__batstats)
 
   def have_batter(self, num, name=None, add=False):

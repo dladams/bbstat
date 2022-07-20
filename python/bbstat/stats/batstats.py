@@ -8,7 +8,7 @@ import traceback
 from bbstat import GameStats
 
 def krat(num, den):
-  print(f"{num}/{den}")
+  #print(f"{num}/{den}")
   if int(den) == 0: return 0.0
   return int(round(1000*num/den))
 
@@ -28,11 +28,11 @@ class BatStats:
     names = 'hit atb'
     self.stats = None
 
-  def __init__(self, gstats):
-    s = gstats.bat_stats()
+  def __init__(self, gstats, minpa=20):
+    s = gstats.bat_stats().copy()
     print(gstats.roster())
     if gstats.roster() is not None:
-      s.insert(0, 'name', gstats.roster().get()['first'])
+      s.insert(0, 'rname', gstats.roster().get()['first'])
     s['hit'] = s.b1 + s.b2 + s.b3 + s.hr
     s['atb'] = s.k + s.e + s.out + s.fc + s.hit
     #s['avg'] = 0
@@ -44,6 +44,8 @@ class BatStats:
     s.loc[:,'ops'] = s.obp + s.slg
     #for idx, row in s.iterrows():
     #  BatStats.update_row(row)
+    s = s.query(f"pa>{minpa}")
+    s.sort_values('ops', ascending=False, inplace=True)
     self.stats = s
 
   def get(self, view='all'):
@@ -54,10 +56,10 @@ class BatStats:
     print (self.get(view))
 
   def report(self):
-    print("               PA  AVG  OBP  SLG  OPS    RS RBI")
+    print("                       PA  AVG  OBP  SLG  OPS    RS RBI")
     count = 0
     for idx, x in self.stats.sort_values('ops', ascending=False).iterrows():
       if count == 0:
-        print('  ---------|--------------------------|--------')
-      print(f"{x['name']:>10} | {x.pa:4d} {x.avg:4d} {x.obp:4d} {x.slg:4d} {x.ops:4d} | {x.run:3d} {x.rbi:3d}")
+        print('  -----------------|--------------------------|--------')
+      print(f"{x['name']:>18} | {x.pa:4.0f} {x.avg:4.0f} {x.obp:4.0f} {x.slg:4.0f} {x.ops:4.0f} | {x.run:3.0f} {x.rbi:3.0f}")
       count = (count + 1) % 4

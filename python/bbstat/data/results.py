@@ -82,7 +82,7 @@ class AtBatResult:
         self.is_k = lab[0]=='K' or self.causes[0]=='K'
         self.is_fc = lab=='FC'
         self.is_error = lab[0]=='E'
-        self.is_walk = lab=='BB'
+        self.is_walk = lab=='BB' or lab=="IBB"
         self.is_hbp = lab=='HBP'
         if   lab == '1B': self.hit_base = 1
         elif lab == '2B': self.hit_base = 2
@@ -105,6 +105,9 @@ class AtBatResult:
             dash.append(val=='-')
         # Batter safe
         if   lab == 'BB': self.__set('b')
+        elif lab == 'IBB': self.__set('bs')
+        elif lab == 'WP': self.__set('bs')  # Batter may reach on dropped 3rd strike
+        elif lab == 'PP': self.__set('bs')
         elif lab =='HBP': self.__set('b')
         elif lab == 'KD': self.__set('s')     # Dropped 3rd strike
         elif lab == 'CI': self.__set('s')

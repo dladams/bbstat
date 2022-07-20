@@ -116,7 +116,7 @@ class Reader:
                 in_inning = True
 
             # End the game (including current inning).
-            elif line in ['MERCY', 'TIME']:
+            elif line in ['MERCY', 'TIME', 'WALKOFF']:
                 if self.game().is_active():
                     self.game().end_half_inning()
                 else:

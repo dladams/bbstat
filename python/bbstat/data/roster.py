@@ -1,4 +1,4 @@
-# roseter.py
+# roster.py
 #
 # Class to hold the team roster
 #
