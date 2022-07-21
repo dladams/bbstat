@@ -1,6 +1,7 @@
 from bbstat import Roster
 from bbstat import GameStats
 from bbstat import BatStats
+from bbstat import PitchStats
 from bbstat import Reader
 import sys
 import pandas
@@ -80,11 +81,15 @@ def main_test_stats(xarg=''):
       if ig == ng2: print(line)
       count = count + 1
   print(line)
-  gstat_sum.display_bat_stats()
-  print(line, 'Stat summary')
   bstats = BatStats(gstat_sum, minpa=20)
-  print(line, 'Stat summary')
   bstats.display()
+  print(line)
+  pstats = PitchStats(gstat_sum, mininn=5)
+  pstats.display()
+  print(line, 'Stat sums')
   print(f"  Batting stat summary for {count} games")
   bstats.report()
   print(line)
+  print(f"  Pitching stat summary for {count} games")
+  print(line)
+  pstats.report()

@@ -29,29 +29,23 @@ class GameStats:
     snams1 = nam1.split()
     snams2 = nam2.split()
     if len(snams1) > len(snams2):
-      return name_match(nam2, nam1)
+      return GameStats.name_match(nam2, nam1)
     for snam in snams1:
       if snam not in snams2: return False
     return True
       
-  bat_index = 'num'
+  num_index = 'num'
   nam_names = ['name']
   bat_names = 'pa k out sac sf fc e bb hbp b1 b2 b3 hr rbi run obo cs sb pbw'.split()
   pit_names = 'bf ino b s bpo rpo k bb hpb hit run wp'.split()
   all_bat_names = nam_names + bat_names
-  idx_bat_names = [bat_index] + all_bat_names
+  idx_bat_names = [num_index] + all_bat_names
   all_pit_names = nam_names + pit_names
-  idx_pit_names = [bat_index] + all_pit_names
+  idx_pit_names = [num_index] + all_pit_names
   bat_dict = {}
-  con_dict = {}
-  typ_dict = {}
   bat_dict['name'] = ''
-  con_dict['name'] = tostr
-  typ_dict['name'] = str
   for nam in bat_names:
       bat_dict[nam] = 0
-      con_dict[nam] = toint
-      typ_dict[nam] = int
 
   def __init__(self, roster=None, fill=True, xfile=''):
     '''
@@ -59,9 +53,17 @@ class GameStats:
     If fill is true, it is created from the roste with all fields zeroed.
     '''
     self.__roster = roster
-    self.__batstats = pandas.DataFrame(columns=GameStats.idx_bat_names, dtype=int).astype(GameStats.typ_dict)
+    # Create batting stats
+    self.__batstats = pandas.DataFrame(columns=GameStats.idx_bat_names, dtype=int)
+    self.__batstats.name.astype(str)
     self.batstats_last = None
-    self.__batstats.set_index(GameStats.bat_index, inplace=True)
+    self.__batstats.set_index(GameStats.num_index, inplace=True)
+    # Create pitching stats
+    self.__pitstats = pandas.DataFrame(columns=GameStats.idx_pit_names, dtype=int)
+    self.__pitstats.name.astype(str)
+    self.pitstats_last = None
+    self.__pitstats.set_index(GameStats.num_index, inplace=True)
+    # Create fielding stats
     self.__fieldstats = None
     if fill and self.roster() is not None:
       if self.roster() is None:
@@ -74,16 +76,20 @@ class GameStats:
         for nam in GameStats.bat_names:
             batdf[nam] = int(0)
         self.__batstats = batdf
+        pitdf = rosdf.copy()
+        for nam in GameStats.pit_names:
+            pitdf[nam] = int(0)
+        self.__pitstats = pitdf
     if len(xfile):
       self.add_from_excel(xfile)
 
-  def add(self, rhs, dbg=0):
+  def __adddf(self, olddf, rhsdf, nam, dbg):
     '''Add stats from another stats object.'''
-    myname = 'GameStats.add'
+    myname = 'GameStats.__adddf'
+    if olddf is None: return
+    if rhsdf is None: return
     if dbg > 0: print(f"Adding stats from")
     # Check names and find the number of the players to be updated.
-    rhsdf = rhs.bat_stats()
-    olddf = self.__batstats
     nums = []
     newdf = olddf
     updcols = GameStats.bat_names
@@ -93,16 +99,22 @@ class GameStats:
       rhsnam = rhsdf.loc[num, 'name']
       if not GameStats.name_match(rhsnam, oldnam):
         print(f"{myname}: WARNING: Player {num} new name {rhsnam} differs from existing name {oldnam}")
-      if dbg > 1: print(f"{myname}: Updating bat stats for {num} {oldnam}.")
+      if dbg > 1: print(f"{myname}: Updating {nam} stats for {num} {oldnam}.")
       newdf.loc[num, updcols] = olddf.loc[num, updcols] + rhsdf.loc[num, updcols]
     for num in rhsdf.index:
       if num not in olddf.index:
         print(f"{myname}: WARNING: Ignoring stats for new player {num} {rhsdf.loc[num,'name']}")
     if dbg > 1:
-      print(f"{myname}: Old bat stats:\n{olddf}")
-      print(f"{myname}: Add bat stats:\n{rhsdf}")
-      print(f"{myname}: New bat stats:\n{newdf}")
-    self.__batsums = newdf
+      print(f"{myname}: Old {nam} stats:\n{olddf}")
+      print(f"{myname}: Add {nam} stats:\n{rhsdf}")
+      print(f"{myname}: New {nam} stats:\n{newdf}")
+    return newdf
+
+  def add(self, rhs, dbg=0):
+    '''Add stats from another stats object.'''
+    myname = 'GameStats.add'
+    self.__batsums = self.__adddf(self.bat_stats(), rhs.bat_stats(), 'bat', dbg)
+    self.__pitsums = self.__adddf(self.pitch_stats(), rhs.pitch_stats(), 'pit', dbg)
     return 0
 
   def add_from_excel(self, fin, dbg=0):
@@ -110,13 +122,11 @@ class GameStats:
     myname = 'add_from_excel'
     print(f"Adding stats from {fin}")
     shnam = 'batsum'
-    inam = GameStats.bat_index
+    inam = GameStats.num_index
     cols = GameStats._idx_bat_names
     try:
       if dbg > 0: print(f"{myname}: Reading batstats from {fin}")
-      bstats = pandas.read_excel(fin, sheet_name=shnam, header=0, index_col=inam,
-                                 usecols=cols, converters=GameStats.con_dict).fillna(0)
-                                 #usecols=cols, dtype=GameStats.typ_dict).fillna(0)
+      bstats = pandas.read_excel(fin, sheet_name=shnam, header=0, index_col=inam, usecols=cols)
       if dbg > 2: print(bstats.info());
     except:
       traceback.print_exc()
@@ -171,12 +181,27 @@ class GameStats:
     '''Return all stats or stats for player num.'''
     if num is None:
       return self.__batstats
+    else:
+      return self.__batstats.query(f"num={num}")
+
+  def pitch_stats(self, num=None):
+    '''Return all stats or stats for player num.'''
+    if num is None:
+      return self.__pitstats
+    else:
+      return self.__pitstats.query(f"num={num}")
 
   def increment_bat_stat(self, number, name, delta=1):
     self.bat_stats().loc[number, name] += delta
 
+  def increment_pit_stat(self, number, name, delta=1):
+    self.pit_stats().loc[number, name] += delta
+
   def display_bat_stats(self):
     print (self.__batstats)
+
+  def display_pit_stats(self):
+    print (self.__pitstats)
 
   def roster(self):
     return self.__roster

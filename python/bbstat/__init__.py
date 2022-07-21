@@ -12,6 +12,7 @@ from .data.game import HalfGame
 from .data.game import Game
 from .data.reader import Reader
 from .stats.batstats import BatStats
+from .stats.pitchstats import PitchStats
 
 from .test.test_counter import main_test_counter
 from .test.test_lineup  import main_test_lineup
