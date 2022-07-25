@@ -21,6 +21,9 @@ def main_test_stats(xarg=''):
       xarg = sys.argv[3]
   xonly  = len(xarg) and xarg == 'only'
   xcheck = len(xarg) and xarg == 'check'
+  pfx = tob
+  if xarg == dra:
+    pfx = dra
   ros = Roster()
   ros.set_from_excel(dir + '/roster.xlsx')
   ros.display()
