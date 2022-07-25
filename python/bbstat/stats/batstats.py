@@ -45,7 +45,7 @@ class BatStats:
     #for idx, row in s.iterrows():
     #  BatStats.update_row(row)
     s = s.query(f"pa>{minpa}")
-    s.sort_values('ops', ascending=False, inplace=True)
+    #s = sort_values('ops', ascending=False)
     self.stats = s
 
   def get(self, view='all'):
