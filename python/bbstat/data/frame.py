@@ -533,6 +533,9 @@ class Frame:
                 print(f"{myname}: ERROR: Runner substitution requested when not no base.")
                 return 6
             num = int(action[5:])
+            irun = int(action[5:])
+            # Add runner to stats if needed.
+            assert(self.ostats.have_batter(irun, add=True))
             self.__players[self.counter().get()] = num
         # Handle atbat action.
         else:
