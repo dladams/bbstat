@@ -164,8 +164,12 @@ class HalfGame:
         self.__active = False
         self.__frame = None
         
-    def start_batter(self):
-        '''Start a new batter and return that frame.'''
+    def start_batter(self, isxir=False):
+        '''
+        Start a new batter and return that frame.
+        If isxir is true, then use the batter that ended the last inning
+        and place him on second base.
+        '''
         myname = 'HalfGame.start_batter'
         if not self.is_active():
             print(f"ERROR: Inning is not started.")
@@ -180,10 +184,12 @@ class HalfGame:
             lastfrm = self.last_frame(lasting)
             if lastfrm is None:
                 ipos = 1
-            elif lastfrm.left_atbat():
+                assert(not isixr)
+            elif lastfrm.left_atbat() or isxir:
                 ipos = lastfrm.lineup_position()
         # Not the first batter of the inning.
         else:
+            assert(not isixr)
             lastfrm = self.frame()
         if ipos is None:
             lastpos = lastfrm.lineup_position()

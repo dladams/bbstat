@@ -163,9 +163,11 @@ class Reader:
                     assert( atbat.ostats.have_batter(player, name, add=True) )
                     if dbg > 1: atbat.lineup().display()
                 # Start the next frame.
-                frm = atbat.start_batter()
+                isxir = words[0] == 'XIR'
+                frm = atbat.start_batter(isxir=isxir)
                 if ibat != frm.lineup_position():
                     print(f"{myname}: ERROR: Inconsistent position: {ibat} != {frm.lineup_position()}")
+                    print(f"{myname}: INFO: isixr = {isixr}, word = {words[0]}")
                     self.nerr += 1
                     self.game.error += 1
                     return 1

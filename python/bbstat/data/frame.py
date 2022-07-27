@@ -537,6 +537,12 @@ class Frame:
             # Add runner to stats if needed.
             assert(self.ostats.have_batter(irun, add=True))
             self.__players[self.counter().get()] = num
+        # Extra inning runner
+        elif action == 'XIR':
+            if not self.is_active():
+                print(f"{myname}: ERROR: Runner subsitution {action} requested for an inactive frame.")
+                return 6
+            self.__base = 2
         # Handle atbat action.
         else:
             if not self.is_active():
