@@ -10,35 +10,34 @@ class HalfGame:
       initial frames indexed by inning number.
     '''
 
-    def __init__(self, counter, team_bat, team_field, lineup, defense, ostats, dstats):
+    def __init__(self, counter, team_bat, team_field, olup, dlup, ostats, dstats):
         '''
           team: Team name
-          lineup: Current batting lineup for this team
-          defense: Current defensive lineup for the opposing team
+          olup: Shared batting lineup for this team
+          dlup: Shared defensive lineup for the opposing team
         '''
         myname = 'HalfGame.ctor'
         dbg = 0
         self.__counter = counter
         self.__team_bat = team_bat
         self.__team_field = team_field
-        self.__lineup = None     # Batting lineup.
-        self.__defense = None    # Defensive lineup
+        self.__olup = olup       # Batting lineup.
+        self.__dlup = dlup       # Defensive lineup
         self.__frames = {}       # Initial frames indexed by inning (one per batter)
         self.__frame = None      # Current or last frame.
         self.__active = False    # True if we are in an active inning.
         self.__inning_runs = {}  # Runs indexed by inning
         self.ostats = ostats
         self.dstats = dstats
-        # If lineup was not passed, create one.
-        if lineup is not None:
-           self.__lineup = Lineup(f"{team_bat} batting", self.counter(), lineup)
-        if defense is not None:
-           self.__defense = Lineup(f"{team_field} defense", self.counter(), defense)
-        if dbg: print(f"{myname}: Started half-game for {team_bat} batting")
+        self.__nerror = 0
 
     def counter(self):
         '''Return the indexer.'''
         return self.__counter
+
+    def nerror(self):
+        '''Return the error count.'''
+        return self.__nerror
 
     def team(self):
         '''Return the batting team name.'''
@@ -54,21 +53,21 @@ class HalfGame:
 
     def lineup(self, idx=None):
         '''Return the batting lineup.'''
-        return self.__lineup
+        return self.__olup
         
     def lineup_map(self, idx=None):
         '''Return the map of player numbers indexed by batting position.'''
-        if self.__lineup is None: return {}
-        return self.__lineup.get(idx)
+        if self.__olup is None: return {}
+        return self.__olup.get(idx)
         
     def defensive_lineup(self):
         '''Return the defense lineup.'''
-        return self.__defense
+        return self.__dlup
 
     def defense(self, idx=None):
         '''Return the map of player numbers indexed by field position.'''
-        if self.__defense is None: return {}
-        return self.__defense.get(idx)
+        if self.__dlup is None: return {}
+        return self.__dlup.get(idx)
         
     def is_valid(self, verbose=True):
         '''Return if this is a valid half game.'''
@@ -143,20 +142,36 @@ class HalfGame:
         assert( self.inning() == ing )
         return ing
 
-    def end_inning(self):
+    def end_inning(self, reason=None):
         myname = 'HalfGame.end_inning'
         dbg = 0
         if dbg: print(f"{myname}: Ending {self.team()} inning {self.inning()}")
         if not self.is_active():
             print(f"{myname}: ERROR: Inning is not in progress.")
             return None
+        # If inning ended properly but unusually, close all the frames.
+        check_outs = True
+        if reason in ['MERCY', 'TIME', 'WALKOFF']:
+            self.frame().end_inning()
+            check_outs = False
         # Check the frames.
+        ing = len(self.__frames)
         assert( self.inning_frames() == self.frame().inning_frames() )
+        nout = 0
+        for frm in self.inning_frames():
+            idesc = f"{self.team()} inning {ing}"
+            fdesc = f"{idesc} frame {frm.lineup_position()} player {frm.player()}"
+            if frm.is_active():
+                print(f"{myname}: ERROR: {fdesc} is active.")
+                self.__nerror += 1
+            if frm.out(): nout += 1
+        if check_outs and nout != 3:
+            print(f"{myname}: ERROR: {idesc} has {nout} outs")
+            self.__nerror += 1
         if dbg:
             for frm in self.inning_frames():
                 print(f"{myname}:   {frm.lineup_position():2d} out:{frm.out()} scored:{frm.scored()}")
         # Collect the runs.
-        ing = len(self.__frames)
         assert( ing == self.inning() )
         assert( ing not in self.__inning_runs )
         self.__inning_runs[ing] = self.frame().inning_runs()
@@ -184,12 +199,12 @@ class HalfGame:
             lastfrm = self.last_frame(lasting)
             if lastfrm is None:
                 ipos = 1
-                assert(not isixr)
+                assert(not isxir)
             elif lastfrm.left_atbat() or isxir:
                 ipos = lastfrm.lineup_position()
         # Not the first batter of the inning.
         else:
-            assert(not isixr)
+            assert(not isxir)
             lastfrm = self.frame()
         if ipos is None:
             lastpos = lastfrm.lineup_position()
@@ -201,6 +216,9 @@ class HalfGame:
             assert(False)
         lastfrm_ing = None if self.__frame is None else lastfrm
         frm = Frame(self, ipos, player, self.ostats, self.dstats, lastfrm_ing)
+        if isxir:
+            frm.advance_base()
+            frm.advance_base()
         self.__frame = frm
         if self.__frames[ing] is None: self.__frames[ing] = frm
         self.ipos = ipos
@@ -226,10 +244,14 @@ class Game:
         self.title    = '' if 'title'    not in atts else atts['title']
         self.date     = '' if 'date'     not in atts else atts['date']
         self.location = '' if 'location' not in atts else atts['location']
-        self.hstats = GameStats()
-        self.vstats = GameStats()
-        self.home    = HalfGame(self.counter(), hname, vname, hbat, 9, self.hstats, self.vstats)
-        self.visitor = HalfGame(self.counter(), vname, hname, vbat, 9, self.vstats, self.hstats)
+        self.holup = Lineup(f"{hname} batting", self.counter(), hbat)
+        self.hdlup = Lineup(f"{hname} defense", self.counter(), 9)
+        self.volup = Lineup(f"{vname} batting", self.counter(), vbat)
+        self.vdlup = Lineup(f"{vname} defense", self.counter(), 9)
+        self.hstats = GameStats(self.holup, self.hdlup, hname)
+        self.vstats = GameStats(self.volup, self.vdlup, vname)
+        self.home    = HalfGame(self.counter(), hname, vname, self.holup, self.vdlup, self.hstats, self.vstats)
+        self.visitor = HalfGame(self.counter(), vname, hname, self.volup, self.hdlup, self.vstats, self.hstats)
         self.__index = 0
         self.__homebat = None    # current if active or last if not.
         self.__active = False
@@ -248,6 +270,18 @@ class Game:
     def next_index(self):
         '''Increment and return the index.'''
         return self.counter().next()
+
+    def nerror_game(self):
+        '''Return the number of errors in processing the game.'''
+        return self.home.nerror() + self.visitor.nerror()
+
+    def nerror_stats(self):
+        '''Return the number of errors in evaluating the stats.'''
+        return self.hstats.nerror() + self.vstats.nerror()
+
+    def nerror(self):
+        '''Return the total number of errors.'''
+        return self.nerror_game() + self.nerror_stats()
 
     def is_active(self):
         '''Return if game is active: started and not ended or between innnings.'''
@@ -311,14 +345,14 @@ class Game:
         assert(atbat.is_active())
         return frame
 
-    def end_half_inning(self, index=None):
+    def end_half_inning(self, reason=None, index=None):
         '''Ends the current half inning.'''
         myname = 'Game.end_half_inning'
         dbg = 0
         if not self.is_active():
             print(f"{myname}: ERROR: Half inning is not in progress.")
             return None
-        self.atbat().end_inning()
+        self.atbat().end_inning(reason)
         self.__active = False
         if dbg: print(f"{myname}: Score is {self.score()}")
 

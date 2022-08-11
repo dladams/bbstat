@@ -35,8 +35,9 @@ class Reader:
             # Pitching substitution.
             if line[0:6] == 'PITCH#':
                 pspec = '1#' + line[6:]
-                olup = self.game().atbat().defensive_lineup()
-                nerr, nset = olup.set_from_string(pspec)
+                dlup = self.game().atbat().defensive_lineup()
+                nerr, nset = dlup.set_from_string(pspec)
+                if nerr: return
             # Adjust defensive lineup.
             elif line[0:4] == 'DLUP':
                 word = line[4:]
@@ -45,6 +46,7 @@ class Reader:
                 pfx = 'ERROR: ' if nerr else ''
                 if dbg or nerr:
                     print(f"{myname}: {pfx}Set {nset} defensive positions with {nerr} errors..")
+                    if dbg > 1: print(f"{myname}: {dlup}")
                 if nerr: return
             # Score check.
             elif line[0:6] == 'SCORE:':
@@ -118,7 +120,7 @@ class Reader:
             # End the game (including current inning).
             elif line in ['MERCY', 'TIME', 'WALKOFF']:
                 if self.game().is_active():
-                    self.game().end_half_inning()
+                    self.game().end_half_inning(line)
                 else:
                     print(f"{myname}: Cannot end game during inning for reason {line}")
                     self.error += 1
@@ -163,7 +165,8 @@ class Reader:
                     assert( atbat.ostats.have_batter(player, name, add=True) )
                     if dbg > 1: atbat.lineup().display()
                 # Start the next frame.
-                isxir = words[0] == 'XIR'
+                isxir = len(words) and words[0] == 'XIR'
+                if isxir: words = words[1:]
                 frm = atbat.start_batter(isxir=isxir)
                 if ibat != frm.lineup_position():
                     print(f"{myname}: ERROR: Inconsistent position: {ibat} != {frm.lineup_position()}")

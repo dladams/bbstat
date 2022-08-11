@@ -5,7 +5,6 @@
 
 import pandas
 import traceback
-from bbstat import GameStats
 
 def krat(num, den):
   #print(f"{num}/{den}")
@@ -28,19 +27,24 @@ class BatStats:
     names = 'hit atb'
     self.stats = None
 
-  def __init__(self, gstats, minpa=20):
+  def __init__(self, gstats, minpa=1, add_rname=False):
+    myname = 'BatStats.init'
     s = gstats.bat_stats().copy()
-    print(gstats.roster())
-    if gstats.roster() is not None:
-      s.insert(0, 'rname', gstats.roster().get()['first'])
+    print(f"{myname}: Roster: {gstats.roster()}")
+    if add_rname:
+      if gstats.roster() is not None:
+        s.insert(0, 'rname', gstats.roster().get()['first'])
+      else:
+        print(f"{myname}: WARNING: No roster found.")
     s['hit'] = s.b1 + s.b2 + s.b3 + s.hr
-    s['atb'] = s.k + s.e + s.out + s.fc + s.hit
+    s['atb'] = s.pa - s.bb - s.hbp - s.sf - s.sac
     #s['avg'] = 0
     #s.loc[s['atb']>0,'avg'] = round(1000*s.hit/s.atb).astype(int)
     #s.loc['avg2'] = krat(s.hit, s.atb)
+    print(s)
     s.loc[:,'avg'] = s.apply(lambda x: krat(x.hit, x.atb), axis=1)
     s.loc[:,'slg'] = s.apply(lambda x: krat(x.b1 + 2*x.b2 + 3*x.b3 + 4*x.hr, x.atb), axis=1)
-    s.loc[:,'obp'] = s.apply(lambda x: krat(x.hit + x.bb + x.hbp, x.pa + x.bb + x.hbp + x.sf), axis=1)
+    s.loc[:,'obp'] = s.apply(lambda x: krat(x.hit + x.bb + x.hbp, x.atb + x.bb + x.hbp + x.sf), axis=1)
     s.loc[:,'ops'] = s.obp + s.slg
     #for idx, row in s.iterrows():
     #  BatStats.update_row(row)
@@ -56,10 +60,58 @@ class BatStats:
     print (self.get(view))
 
   def report(self):
-    print("                       PA  AVG  OBP  SLG  OPS    RS RBI")
+    self.report_fields = "Name | PA AB | AVG OBP SLG OPS | RS RBI | SB CS | K BB 1B 2B 3B HR".split()
+    fmap = {}
+    fmap['PA']  = 'pa'
+    fmap['AB']  = 'atb'
+    fmap['AVG'] = 'avg'
+    fmap['OBP'] = 'obp'
+    fmap['SLG'] = 'slg'
+    fmap['OPS'] = 'ops'
+    fmap['RUN'] = 'run'
+    fmap['RS']  = 'run'
+    fmap['RBI'] = 'rbi'
+    fmap['SB']  = 'sb'
+    fmap['CS']  = 'cs'
+    fmap['1B']  = 'b1'
+    fmap['2B']  = 'b2'
+    fmap['3B']  = 'b3'
+    fmap['HR']  = 'hr'
+    fmap['BB']  = 'bb'
+    fmap['K']   = 'k'
+    # Max name length.
+    lnam = 0
+    for nam in self.stats.loc[:,'name'].values:
+      if len(nam) > lnam: lnam = len(nam)
+    # Build the header and separator line
+    wnam = lnam + 1
+    header = ''
+    sep = ''
+    wval = 5
+    for fie in self.report_fields:
+      if fie == 'Name':
+        for i in range(wnam): sep += '-'
+        header += f"{'Name':>{wnam}}"
+      elif fie == '|':
+        sep    += '-|'
+        header += ' |'
+      else:
+        for i in range(wval): sep += '-'
+        header += f"{fie:>{wval}}"
+    print(header)
     count = 0
     for idx, x in self.stats.sort_values('ops', ascending=False).iterrows():
       if count == 0:
-        print('  -----------------|--------------------------|--------')
-      print(f"{x['name']:>18} | {x.pa:4.0f} {x.avg:4.0f} {x.obp:4.0f} {x.slg:4.0f} {x.ops:4.0f} | {x.run:3.0f} {x.rbi:3.0f}")
+        print(sep)
+      line = ''
+      for fie in self.report_fields:
+        if fie == 'Name':
+          line += f"{x['name']:>{wnam}}"
+        elif fie == '|':
+          line += ' |'
+        else:
+          val = int(x[fmap[fie]])
+          line += f"{val:>{wval}.0f}"
+      print(line)
       count = (count + 1) % 4
+    print(sep)

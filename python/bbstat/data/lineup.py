@@ -12,6 +12,51 @@ from bbstat import Counter
 
 class Lineup:
 
+    @classmethod
+    def decode(cls, line):
+        '''
+        Decode a string description of a player or list of players with format
+            POS - position number, or
+            #PLA - PLA = player number
+            #PLA(NAME) - player number and name NAME, or
+            POS#PLA, or
+            POS#(NAME), or
+            POS#PLA(NAME), or
+            PP1, PP2, ... (PPi is any of the above), or
+            [PP1, PP2, ...]
+        Returns a list of tuples (POS, PLA, NAME) for each player
+        with missing values recorded as None.
+        '''
+        myname = 'Lineup.decode'
+        dbg = 0
+        if line[0] == '[' and line[-1] == ']':
+            line = line[1:-1]
+        words = line.split(',')
+        nset = 0
+        nerr = 0
+        out = []
+        for word in words:
+            pos = None
+            num = None
+            name = None
+            word = word.strip()
+            posnum = word.split('#')
+            spos = posnum[0]
+            if len(spos): pos = int(spos)
+            if len(posnum) > 1:
+                 numnam = posnum[1].split('(')
+                 snum = numnam[0]
+                 if len(snum) > 0:
+                     num = int(snum)
+                 if len(numnam) > 1:
+                     snam = numnam[1].split(')')
+                     if len(snam) == 2 and len(snam[1]) == 0:
+                         name = snam[0]
+                     else:
+                         print(f"{myname}: WARNING: Ignoring invalid name in {word}")
+            out.append((pos, num, name))        
+        return out
+
     def __init__(self, title, counter, lineup):
         '''
         Create a lineup.
@@ -34,6 +79,17 @@ class Lineup:
             for ival in range(len(lineup)):
                 self.__data.append({idx:lineup[ival]})
 
+    def __str__(self):
+        sout = f"Lineup {self.title()}"
+        for kpos in range(self.length()):
+            ipos = kpos + 1
+            player = self.get_player(ipos)
+            if player is None:
+                sout += f"\n{ipos:4d}:   ?"
+            else:
+                sout += f"\n{ipos:4d}: {player:3d}"
+        return sout
+
     def title(self):
         return self.__title
 
@@ -43,7 +99,7 @@ class Lineup:
 
     def get_player(self, ipos, idx=None):
         '''
-        Fetch a player number for a given position..
+        Fetch a player number for a given position and index.
           ipos - position in the lineup starting at 1.
           idx - Game index. None for current.
         '''
@@ -62,6 +118,25 @@ class Lineup:
         for kpos in range(self.length()):
             lineup[kpos+1], key = Counter.find_with_key(self.__data[kpos], idx)
         return lineup
+
+    def has_position(self, pos, idx=None):
+        '''
+        Return if position number pos is in the lineup for index idx.
+        Does not gurantee a player is assigned to the position.
+        '''
+        lineup = {}
+        if pos < 1 : return False;
+        if pos > self.length(): return False
+
+    def has_player(self, num, idx=None):
+        '''
+        Return if player number num is in the lineup for index idx.
+        '''
+        lineup = {}
+        for kpos in range(self.length()):
+            lnum = Counter.find_with_key(self.__data[kpos], idx)
+            if lnum == num: return True
+        return False
 
     def set(self, ipos, player, idx=None, add=False, reset=False):
         '''
@@ -97,26 +172,15 @@ class Lineup:
         '''
         myname = 'Lineup.set_from_string'
         dbg = 0
-        if line[0] == '[' and line[-1] == ']':
-            line = line[1:-1]
-        words = line.split(',')
         nset = 0
         nerr = 0
-        for word in words:
-            posnum = word.strip
-            posnum = word.split('#')
-            if len(posnum)== 2:
-                 ipos = int(posnum[0])
-                 num = int(posnum[1].split('(')[0])   # For now, ignore the name
-                 if self.set(ipos, num):
-                     nerr = nerr + 1
-                     print(f"{myname}: WARNING: Error setting player {num} in position {ipos}")
-                 else:
-                     nset = nset + 1
-                     if dbg: print(f"{myname}: Set player {num} in position {ipos}")
-            else:
-                print(f"{myname}: WARNING: Ignoring invalid position field: {word}")
+        for pos, num, nam in self.decode(line):
+            if self.set(pos, num):
                 nerr = nerr + 1
+                print(f"{myname}: WARNING: Error setting player {num} in position {pos}")
+            else:
+                nset = nset + 1
+                if dbg: print(f"{myname}: Set player {num} in position {pos}")
         return nerr, nset
 
     def display(self):

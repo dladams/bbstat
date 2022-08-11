@@ -1,6 +1,23 @@
 import bbstat
 
+def test_decode():
+    myname = 'test_decode'
+    slup = '[ 1#12(Iam Twelve), 2#(I. Catch), #6(John Bench), 3#33(Oneb Error)), 4#44]'
+    exp = []
+    exp.append( (1, 12, 'Iam Twelve') )
+    exp.append( (2, None, 'I. Catch') )
+    exp.append( (None, 6, 'John Bench') )
+    exp.append( (3, 33, None) )
+    exp.append( (4, 44, None) )
+    lup = bbstat.Lineup.decode(slup)
+    llup = len(lup)
+    assert( llup == len(exp) )
+    for i in range(llup):
+        print(f"{lup[i]} ?= {exp[i]}")
+        assert( lup[i] == exp[i] )
+
 def main_test_lineup():
+    test_decode()
     myname = 'test_lineup'
     ttl = "Test defense"
     ctr = bbstat.Counter()

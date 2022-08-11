@@ -42,6 +42,9 @@ class PitchStats:
     #s.sort_values('ops', ascending=False, inplace=True)
     self.stats = s
 
+  def add(self, num):
+    '''Add a pitcher as current'''
+    
   def get(self, view='all'):
     '''Return compiled stats'''
     return self.stats

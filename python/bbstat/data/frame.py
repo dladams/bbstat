@@ -56,6 +56,13 @@ class Frame:
     def halfgame(self):
         return self.__halfgame
 
+    def defense_player(self,ipos):
+        '''Get the current player number for defense position number ipos.'''
+        return halfgame().defensive_lineup().get_player(ipos)
+
+    def pitcher(self,ipos):
+        '''Get the current pitcher.'''
+
     def counter(self):
         '''Return the indexer.'''
         return self.halfgame().counter()
@@ -272,6 +279,7 @@ class Frame:
             return 2
         self.__out = out
         self.__index_end = self.counter().get()
+        self.dstats.increment_pitch_stat('ino')
         return 0
 
     def advance_base(self, nbase=1):
@@ -290,7 +298,8 @@ class Frame:
         if dbg>1: print(f"{myname}: Position {self.lineup_position()} player {self.player()}" \
                         f" advanced {nbase} bases to base {base}")
         if base >= 4 and nbase > 0:
-            self.ostats.increment_bat_stat(self.player(),'run')
+            self.ostats.increment_player_bat_stat(self.player(),'run')
+            self.dstats.increment_pitch_stat('run')
             if dbg: print(f"{myname}: Position {self.lineup_position()} player {self.player()}" \
                           f" is credited with a run.")
         if base > 4:
@@ -315,10 +324,16 @@ class Frame:
         if not self.atbat():
             print(f"ERROR: Pitch thrown to player not at bat.")
             return 1
+        nb = 0
+        nk = 0
         for spit in spits:
             if spit not in AtBatResult.pitch_types():
                 print(f"ERROR: Invalid pitch type: {spit}")
                 return 2
+            if spit == 'b': nb += 1
+            else:           nk += 1
+        self.dstats.increment_pitch_stat('b', nb)
+        self.dstats.increment_pitch_stat('s', nk)
         idx = self.counter().next()
         self.__pitches[idx] = spits
         if len(action):
@@ -416,9 +431,11 @@ class Frame:
                 print(f"{myname}: ERROR: On-base action {action} requested for player at-bat.")
                 return 5
             if action == 'SB':
-                self.ostats.increment_bat_stat(self.player(),'sb')
+                self.ostats.increment_player_bat_stat(self.player(),'sb')
             elif action in ['PB', 'WP']:
-                self.ostats.increment_bat_stat(self.player(),'pbw')
+                self.ostats.increment_player_bat_stat(self.player(),'pbw')
+            if action == 'WP':
+                self.dstats.increment_pitch_stat('wpa')
             oldbase = self.base()
             if self.advance_base(): return 1
             newbase = self.base()
@@ -441,7 +458,7 @@ class Frame:
             pos = self.lineup_position()
             print(f"{myname}: ERROR: Frame {pos} is not left at bat.")
             return 1
-        # Handle check of left on base at then end of the inning.
+        # Handle check of left on base at the end of the inning.
         if action == 'LOB':
             if not dotag:
                 if 'end' not in self.__tagactions:
@@ -485,17 +502,12 @@ class Frame:
         if action == 'RBI':
             if dbg:
                 print(f"{myname}: Handling RBI.")
-            self.ostats.increment_bat_stat(self.player(),'rbi')
+            self.ostats.increment_player_bat_stat(self.player(),'rbi')
             return 0
-        # Handle n RBI.
+        # Handle no RBI.
         if action == 'NORBI':
             if dbg:
                 print(f"{myname}: Handling NORBI.")
-            return 0
-        # Handle sacrifice bunt.
-        if action == 'SAC':
-            if dbg:
-                print(f"{myname}: Handling SAC.")
             return 0
         # Handle productive out.
         if action == 'PO':
@@ -521,8 +533,9 @@ class Frame:
             return 0
         # Pitcher substitution.
         elif action[0:6] == 'PITCH#':
-            pspec = '1#' + action[6:]
-            nerr, nset = self.halfgame().defensive_lineup().set_from_string(pspec)
+            pspec = '1#' + action[5:]
+            dlup = self.halfgame().defensive_lineup()
+            nerr, nset = dlup.set_from_string(pspec)
             return nerr
         # Runner substitution.
         elif action[0:5] == 'RSUB#':
@@ -537,12 +550,6 @@ class Frame:
             # Add runner to stats if needed.
             assert(self.ostats.have_batter(irun, add=True))
             self.__players[self.counter().get()] = num
-        # Extra inning runner
-        elif action == 'XIR':
-            if not self.is_active():
-                print(f"{myname}: ERROR: Runner subsitution {action} requested for an inactive frame.")
-                return 6
-            self.__base = 2
         # Handle atbat action.
         else:
             if not self.is_active():
@@ -569,9 +576,10 @@ class Frame:
                         if not self.ostats.have_batter(num):
                             print(f"{myname}: ERROR: On-base out made by unknown player number {num}")
                             return 1
-                        self.ostats.increment_bat_stat(num,'obo')
+                        self.ostats.increment_player_bat_stat(num,'obo')
+                        self.dstats.increment_pitch_stat('rpo')
                         if 'CS' in res.causes:
-                            self.ostats.increment_bat_stat(num,'cs')
+                            self.ostats.increment_player_bat_stat(num,'cs')
                         del num
                 if dbg: print(f"{myname}: At-bat result for action {action}: base={resbase}, "
                               f"isout={res.batter_out}")
@@ -584,31 +592,38 @@ class Frame:
                         return 7
                 # Update batting stats if action is for a batter.
                 if oldbase == 0:
-                    self.ostats.increment_bat_stat(self.player(),'pa')
+                    self.ostats.increment_player_bat_stat(self.player(),'pa')
                     if res.is_k:
-                        self.ostats.increment_bat_stat(self.player(),'k')
+                        self.ostats.increment_player_bat_stat(self.player(),'k')
+                        self.dstats.increment_pitch_stat('k')
                     if res.batter_out:
-                        self.ostats.increment_bat_stat(self.player(),'out')
+                        self.ostats.increment_player_bat_stat(self.player(),'out')
+                        self.dstats.increment_pitch_stat('bpo')
                     if res.is_fc:
-                        self.ostats.increment_bat_stat(self.player(),'fc')
+                        self.ostats.increment_player_bat_stat(self.player(),'fc')
                     if res.is_error:
-                        self.ostats.increment_bat_stat(self.player(),'e')
+                        self.ostats.increment_player_bat_stat(self.player(),'e')
                     if res.is_sacrifice_fly:
-                        self.ostats.increment_bat_stat(self.player(),'sf')
+                        self.ostats.increment_player_bat_stat(self.player(),'sf')
                     if 'SAC' in res.causes:
-                        self.ostats.increment_bat_stat(self.player(),'sac')
+                        self.ostats.increment_player_bat_stat(self.player(),'sac')
                     if res.is_walk:
-                        self.ostats.increment_bat_stat(self.player(),'bb')
+                        self.ostats.increment_player_bat_stat(self.player(),'bb')
+                        self.dstats.increment_pitch_stat('bb')
                     if res.is_hbp:
-                        self.ostats.increment_bat_stat(self.player(),'hbp')
+                        self.ostats.increment_player_bat_stat(self.player(),'hbp')
+                        self.dstats.increment_pitch_stat('hbp')
                     if res.hit_base == 1:
-                        self.ostats.increment_bat_stat(self.player(),'b1')
+                        self.ostats.increment_player_bat_stat(self.player(),'b1')
                     if res.hit_base == 2:
-                        self.ostats.increment_bat_stat(self.player(),'b2')
+                        self.ostats.increment_player_bat_stat(self.player(),'b2')
                     if res.hit_base == 3:
-                        self.ostats.increment_bat_stat(self.player(),'b3')
+                        self.ostats.increment_player_bat_stat(self.player(),'b3')
                     if res.hit_base == 4:
-                        self.ostats.increment_bat_stat(self.player(),'hr')
+                        self.ostats.increment_player_bat_stat(self.player(),'hr')
+                    if res.hit_base:
+                        self.dstats.increment_pitch_stat('hit')
+                    self.dstats.increment_pitch_stat('bf')
             else:
                 print(f"{myname}: ERROR: Invalid atbat action: {action}")
                 return 7
