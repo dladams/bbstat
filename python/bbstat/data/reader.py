@@ -143,7 +143,7 @@ class Reader:
                     return
                 # Check if the next word is a player spec. If so, we need to set that
                 # before starting the at bat and, if needed, the inning.
-                word = words[0]
+                word = words[0] if len(words) else 'SKIP'
                 if word[0] == '#':
                     words = words[1:]
                     word = word[1:]
@@ -170,9 +170,9 @@ class Reader:
                 frm = atbat.start_batter(isxir=isxir)
                 if ibat != frm.lineup_position():
                     print(f"{myname}: ERROR: Inconsistent position: {ibat} != {frm.lineup_position()}")
-                    print(f"{myname}: INFO: isixr = {isixr}, word = {words[0]}")
+                    print(f"{myname}: INFO: isxir = {isxir}, word = {words[0]}")
                     self.nerr += 1
-                    self.game.error += 1
+                    #self.game.error += 1
                     return 1
                 # Remaining words are actions to be handled by the frame.
                 assert( frm is not None )

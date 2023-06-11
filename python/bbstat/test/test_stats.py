@@ -18,7 +18,7 @@ def main_test_stats():
            minpa=N - Set minpa for bat stats to N
   '''
   pandas.options.display.width = 0
-  dir = '/Users/davidadams/sports/wildcats/wildcats2022'
+  dir = '/Users/davidadams/Documents/sports/wildcats-2023'
   line = '----------------------------'
   ssgam = sys.argv[1]
   sgams = []
@@ -77,7 +77,7 @@ def main_test_stats():
     dbg = 0
     for sgam in sgams:
       # Game stats
-      gdir = '/Users/davidadams/sports/wildcats/wildcats2022/games'
+      gdir = '/Users/davidadams/Documents/sports/wildcats-2023/games'
       fnam = gdir + '/' + sgam + '.dat'
       print(line, 'Game', sgam)
       rdr = Reader(fnam, dbg)

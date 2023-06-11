@@ -4,7 +4,7 @@ import pandas
 
 def main_test_reader():
     pandas.options.display.width = 0
-    gnam = 'tob07'
+    gnam = 'tob02'
     dbg = 0
     show = 'bat'
     if len(sys.argv) > 1:
@@ -18,7 +18,7 @@ def main_test_reader():
         elif arg == 'pitch': show = 'pitch'
         elif arg ==   'bat': show = 'bat'
     print(f"Processing game {gnam}")
-    gdir = '/Users/davidadams/sports/wildcats/wildcats2022/games'
+    gdir = '/Users/davidadams/Documents/sports/wildcats-2023/games'
     fnam = gdir + '/' + gnam + '.dat'
     print('Reader test of bbstat:')
     rdr = bbstat.Reader(fnam, dbg)

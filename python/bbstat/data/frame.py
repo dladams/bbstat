@@ -426,7 +426,7 @@ class Frame:
         # Handle the action.
         if dbg: print(f"{myname}: Handling action {action}")
         # Handle onbase action.
-        if action in ['SB', 'WP', 'PB', 'T', 'AD', 'BALK']:
+        if action in ['SB', 'DI', 'WP', 'PB', 'T', 'AD', 'BALK']:
             if self.atbat():
                 print(f"{myname}: ERROR: On-base action {action} requested for player at-bat.")
                 return 5
@@ -533,9 +533,11 @@ class Frame:
             return 0
         # Pitcher substitution.
         elif action[0:6] == 'PITCH#':
-            pspec = '1#' + action[5:]
+            pspec = '1#' + action[6:]
             dlup = self.halfgame().defensive_lineup()
             nerr, nset = dlup.set_from_string(pspec)
+            if nerr:
+                print(f"{myname}: ERROR: Unable to set pitcher with spec {pspec}")
             return nerr
         # Runner substitution.
         elif action[0:5] == 'RSUB#':

@@ -30,7 +30,7 @@ class AtBatResult:
         """
         Describes the consequences of an an at-bat or an on-base out.
           labc - label, label:cause or lab:cause1:cause2, etc.
-        Label include:
+        Labels include:
           I-J - Pos I threw to pos J.
           FI - Pos I caught a fly ball
           FFI - Pos I caught a foul fly ball
@@ -125,6 +125,8 @@ class AtBatResult:
         elif lab == 'KS': self.__set_out('s') 
         elif lab == 'KC': self.__set_out('c')
         elif lab == 'KL': self.__set_out('c')
+        elif lab == 'BI': self.__set_out('s')
+        elif lab == 'IF': self.__set_out('s')      # Infield fly
         elif lab ==  'K': self.__set_out('cs')
         elif lab =='K23': self.__set_out('cs', [3], [2])
         elif lab =='KC23': self.__set_out('c', [3], [2])
